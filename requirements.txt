@@ -1,0 +1,11 @@
+# Dependensi inti untuk eksperimen klasifikasi teks (4 label).
+# Install dengan: pip install -r requirements.txt
+torch
+transformers
+accelerate
+pandas
+numpy
+scikit-learn
+matplotlib
+seaborn
+huggingface_hub
