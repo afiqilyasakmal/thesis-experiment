@@ -15,6 +15,8 @@ dan hasilnya bisa diperiksa manual:
 import json
 import os
 
+import pandas as pd
+
 
 def read_jsonl(path: str) -> list:
     """
@@ -33,6 +35,43 @@ def read_jsonl(path: str) -> list:
             if line:  # lewati baris kosong agar tidak memicu error json.loads
                 result.append(json.loads(line))
     return result
+
+
+def read_csv_as_records(path: str) -> list:
+    """
+    Membaca file CSV (kolom: text, labels) menjadi list of dict dengan struktur
+    yang sama seperti file JSONL: {"idx": ..., "text": ..., "label": ...}.
+
+    Fungsi ini dipakai untuk mode ZERO-SHOT, yang input-nya boleh langsung berupa
+    CSV data uji (tidak butuh tahap get_example). Nama kolom "labels" (jamak) pada
+    CSV dipetakan menjadi key "label" (tunggal) agar konsisten dengan tahap lain.
+    """
+    df = pd.read_csv(path)
+    records = []
+    for idx, (_, row) in enumerate(df.iterrows()):
+        records.append({
+            "idx": idx,
+            "text": row["text"],
+            "label": row["labels"],
+        })
+    return records
+
+
+def read_input(path: str) -> list:
+    """
+    Membaca file input inferensi (.jsonl ATAU .csv) menjadi list of dict.
+
+    Dispatch berdasarkan ekstensi file:
+        - .jsonl/.json -> read_jsonl (hasil tahap get_example)
+        - .csv         -> read_csv_as_records (data uji mentah, untuk zero-shot)
+    """
+    if path.endswith((".jsonl", ".json")):
+        return read_jsonl(path)
+    if path.endswith(".csv"):
+        return read_csv_as_records(path)
+    raise ValueError(
+        f"Format file tidak didukung: {path!r}. Gunakan file .jsonl atau .csv."
+    )
 
 
 def write_jsonl(data: list, path: str) -> None:

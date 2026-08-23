@@ -11,7 +11,7 @@ mudah dibaca dan diuji.
 
 import time
 
-from llm_inference.io_utils import read_jsonl, write_jsonl
+from llm_inference.io_utils import read_input, write_jsonl
 from llm_inference.model_utils import generate_answer, load_model_tokenizer
 from llm_inference.prompts import build_few_shot_prompt, build_zero_shot_prompt
 
@@ -64,7 +64,7 @@ def run_bulk_inference(
     model, tokenizer = load_model_tokenizer(model_name, hf_token, device, dtype)
 
     # 2) Baca data JSONL.
-    records = read_jsonl(input_file_path)
+    records = read_input(input_file_path)
     total = len(records)
     print(f"Total data yang akan diproses: {total}")
 
