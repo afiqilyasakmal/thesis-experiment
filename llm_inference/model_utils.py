@@ -96,6 +96,24 @@ def generate_answer(
         - return_scores=False -> str (jawaban mentah dari model)
         - return_scores=True  -> tuple (jawaban: str, subtoken: list[str], skor: list[float])
     """
+    # Bungkus prompt ke format chat (satu pesan role "user"), lalu terapkan CHAT TEMPLATE.
+    # Model varian -Instruct (mis. Qwen2.5-*-Instruct) butuh token khusus seperti
+    # <|im_start|>user ... <|im_end|><|im_start|>assistant agar bisa mengikuti instruksi.
+    # Tanpa chat template, model justru "melanjutkan teks" (mengulang contoh / daftar
+    # kategori) alih-alih menjawab hanya labelnya.
+    if tokenizer.chat_template is not None:
+        messages = [{"role": "user", "content": prompt}]
+        prompt = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+    else:
+        # Base model (tanpa -Instruct) tidak punya chat_template. Ini bukan cara yang
+        # disarankan untuk klasifikasi; peringatan ini untuk mencegah hasil kacau.
+        print(
+            "[PERINGATAN] Tokenizer tidak punya chat_template. "
+            "Pakai model varian -Instruct (mis. Qwen/Qwen2.5-7B-Instruct)."
+        )
+
     # Tokenisasi prompt menjadi tensor, lalu pindahkan ke device yang sama dengan model.
     inputs = tokenizer([prompt], return_tensors="pt").to(device)
 

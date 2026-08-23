@@ -34,6 +34,30 @@ experiment/
 └── requirements.txt
 ```
 
+## Setup & Instalasi (di server)
+
+```bash
+# 1) Aktifkan venv yang sudah ada di server
+source /path/ke/venv/bin/activate
+
+# 2) Cek GPU & versi CUDA yang didukung driver
+nvidia-smi
+
+# 3) Install torch versi CUDA yang sesuai GPU.
+#    - RTX 50-series (Blackwell, mis. RTX 5060 Ti): WAJIB cu128 atau cu130
+#    - GPU lain: sesuaikan (cu121 / cu124, dst.)
+pip install torch --index-url https://download.pytorch.org/whl/cu128
+
+# 4) Baru install dependensi lainnya (torch sudah terpasang, jadi dilewati)
+pip install -r requirements.txt
+
+# 5) Verifikasi GPU terbaca (harus keluar True dan versi mengandung +cu128)
+python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+```
+
+> PENTING: jangan langsung `pip install -r requirements.txt` tanpa langkah 3,
+> karena PyPI akan menginstall `torch` versi CPU (tidak memakai GPU).
+
 ## Alur Eksperimen (3 Tahap)
 
 ### Tahap 0 — Menyiapkan contoh few-shot
@@ -90,7 +114,8 @@ Output: JSONL bersih, CSV laporan, dan gambar `evaluation_report_confusion_matri
 
 ## Catatan untuk Server (SSH)
 
-- Pastikan dependencies terpasang: `pip install -r requirements.txt`.
+- Lihat bagian "Setup & Instalasi" di atas untuk langkah install lengkap. Intinya:
+  install torch versi CUDA dulu, jangan sampai terinstall versi CPU.
 - Jika server tidak punya GPU, jalankan dengan `--device cpu`.
 - Untuk GPU lama (T4/Turing), gunakan `--dtype float16` (bfloat16 hanya cepat di
   GPU Ampere ke atas).

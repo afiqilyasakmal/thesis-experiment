@@ -1,5 +1,14 @@
 # Dependensi inti untuk eksperimen klasifikasi teks (4 label).
-# Install dengan: pip install -r requirements.txt
+#
+# PENTING: jangan langsung `pip install -r requirements.txt` di server yang
+# memakai GPU NVIDIA RTX 50-series (Blackwell, mis. RTX 5060 Ti). Install torch
+# versi CUDA dulu, baru sisanya:
+#
+#     pip install torch --index-url https://download.pytorch.org/whl/cu128
+#     pip install -r requirements.txt
+#
+# Baris `torch` di bawah sengaja TANPA versi, karena versi CUDA-nya ditentukan
+# oleh langkah install di atas (cu128/cu130), bukan oleh file ini.
 torch
 transformers
 accelerate
