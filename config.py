@@ -78,9 +78,8 @@ DEFAULT_NUM_EXAMPLES = 5
 # Catatan sebelum menjalankan:
 #   - meta-llama/Llama-3.1-8B-Instruct adalah model GATED: harus klik "Agree"
 #     di halaman model HuggingFace dulu, lalu lempar token lewat --hf_token.
-#   - Model 8B (Llama-3.1-8B, SahabatAI-8B) dalam bfloat16 ~16GB: muat di 1 GPU
-#     16GB tapi ketat; kalau OOM, ubah load_model_tokenizer() ke device_map="auto"
-#     agar memakai 2 GPU sekaligus.
+#   - Model 8B (Llama-3.1-8B, SahabatAI-8B) dalam bfloat16 ~16GB: otomatis di-shard
+#     ke 2 GPU (8GB + 8GB) lewat device_map="auto" bila server punya >1 GPU.
 MODEL_LIST = [
     "mistralai/Mistral-7B-Instruct-v0.3",
     "meta-llama/Llama-3.1-8B-Instruct",

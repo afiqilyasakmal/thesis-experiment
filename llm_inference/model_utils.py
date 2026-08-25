@@ -9,6 +9,8 @@ PERBEDAAN PENTING dengan folder reference/:
     - Kode ini didesain untuk dijalankan di SERVER (via SSH). Oleh karena itu,
       pemilihan device ("cuda", "cuda:0", "cpu") dan tipe data (dtype) dibuat
       EKSPLISIT dan dapat diatur lewat argumen CLI (lihat main.py).
+      Pengecualian: bila terdeteksi >1 GPU CUDA, model dimuat dengan
+      device_map="auto" supaya bisa di-shard ke beberapa GPU (untuk model 8B).
 """
 
 import numpy as np
@@ -54,13 +56,27 @@ def load_model_tokenizer(
         "float32": torch.float32,
     }.get(dtype, torch.bfloat16)
 
-    # Muat tokenizer dan model. Sengaja TIDAK memakai device_map="auto" supaya
+    # Deteksi ketersediaan & jumlah GPU lebih dulu, karena menentukan cara memuat model.
+    cuda_available = torch.cuda.is_available()
+    num_gpus = torch.cuda.device_count() if cuda_available else 0
+
+    # Jatuh ke CPU bila GPU (CUDA) tidak tersedia di mesin.
+    if device.startswith("cuda") and not cuda_available:
+        print("[PERINGATAN] CUDA tidak tersedia di mesin ini, beralih ke CPU.")
+        device = "cpu"
+
+    # Sharding 1 model ke >1 GPU: pakai device_map="auto" supaya bobot dibelah otomatis
+    # (mis. Llama-8B / SahabatAI-8B ~16GB -> 8GB di GPU 0 + 8GB di GPU 1). Tanpa ini,
+    # model 8B akan OOM di satu GPU 8GB. Kalau cuma 1 GPU, tetap pakai .to(device) supaya
     # device sepenuhnya kita kontrol lewat argumen (lebih eksplisit & mudah di-debug).
+    use_device_map_auto = device.startswith("cuda") and num_gpus > 1
+
     tokenizer = AutoTokenizer.from_pretrained(model_name, token=hf_token or None)
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         torch_dtype=torch_dtype,
         token=hf_token or None,
+        device_map="auto" if use_device_map_auto else None,
     )
 
     # Beberapa tokenizer tidak memiliki pad_token_id. Pinjam eos_token_id agar
@@ -68,12 +84,11 @@ def load_model_tokenizer(
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
-    # Jatuh ke CPU bila GPU (CUDA) tidak tersedia di mesin.
-    if device.startswith("cuda") and not torch.cuda.is_available():
-        print("[PERINGATAN] CUDA tidak tersedia di mesin ini, beralih ke CPU.")
-        device = "cpu"
+    # Bila TIDAK pakai device_map="auto", pindahkan model ke device eksplisit.
+    # (Dengan device_map="auto", model sudah diletakkan otomatis & TIDAK boleh di-.to().)
+    if not use_device_map_auto:
+        model = model.to(device)
 
-    model = model.to(device)
     model.eval()
 
     trace_output("model & tokenizer siap dipakai")
