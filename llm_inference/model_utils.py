@@ -15,6 +15,8 @@ import numpy as np
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+from trace import trace_input, trace_output, trace_running, trace_start
+
 
 def load_model_tokenizer(
     model_name: str,
@@ -35,6 +37,10 @@ def load_model_tokenizer(
     Mengembalikan:
         tuple (model, tokenizer).
     """
+    trace_start("model_utils", "load_model_tokenizer")
+    trace_input(f"model_name={model_name}, device={device}, dtype={dtype}")
+    trace_running()
+
     # Jika disediakan token, login dulu agar bisa mengakses model gated.
     if hf_token:
         from huggingface_hub import login
@@ -70,6 +76,7 @@ def load_model_tokenizer(
     model = model.to(device)
     model.eval()
 
+    trace_output("model & tokenizer siap dipakai")
     return model, tokenizer
 
 

@@ -50,6 +50,7 @@ if str(PROJECT_ROOT) not in sys.path:
 import pandas as pd
 
 from config import LABELS, TEST_FILE, TRAIN_FILE
+from trace import trace_input, trace_output, trace_running, trace_start
 
 
 def generate_examples(
@@ -91,9 +92,18 @@ def generate_examples(
                 f"train, padahal num_examples={num_examples}. Kurangi num_examples."
             )
 
+    # Jejak langkah (trace): ringkasan input tahap ini.
+    trace_start("generate_examples", "generate_examples")
+    trace_input(
+        f"train_file={train_file} ({len(train_df)} baris), "
+        f"test_file={test_file} ({len(test_df)} baris), num_examples={num_examples}"
+    )
+    trace_running()
+
     # Pastikan folder tujuan ada.
     os.makedirs(os.path.dirname(output_file) or ".", exist_ok=True)
 
+    first_record = None
     with open(output_file, "w", encoding="utf-8") as f:
         for idx, (_, row) in enumerate(test_df.iterrows()):
             # Ambil `num_examples` contoh ACAK untuk SETIAP label.
@@ -109,9 +119,14 @@ def generate_examples(
                 "label": row["labels"],
                 "examples": examples,
             }
+            if first_record is None:
+                first_record = record
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
-    print(f"Selesai. File contoh few-shot tersimpan di: {output_file}")
+    trace_output(
+        f"{len(test_df)} record ditulis ke {output_file}; "
+        f"contoh baris: {json.dumps(first_record, ensure_ascii=False)}"
+    )
 
 
 if __name__ == "__main__":

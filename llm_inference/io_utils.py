@@ -17,6 +17,8 @@ import os
 
 import pandas as pd
 
+from trace import trace_input, trace_output, trace_running, trace_start
+
 
 def read_jsonl(path: str) -> list:
     """
@@ -65,13 +67,18 @@ def read_input(path: str) -> list:
         - .jsonl/.json -> read_jsonl (hasil tahap get_example)
         - .csv         -> read_csv_as_records (data uji mentah, untuk zero-shot)
     """
+    trace_start("io_utils", "read_input")
+    trace_input(path)
     if path.endswith((".jsonl", ".json")):
-        return read_jsonl(path)
-    if path.endswith(".csv"):
-        return read_csv_as_records(path)
-    raise ValueError(
-        f"Format file tidak didukung: {path!r}. Gunakan file .jsonl atau .csv."
-    )
+        result = read_jsonl(path)
+    elif path.endswith(".csv"):
+        result = read_csv_as_records(path)
+    else:
+        raise ValueError(
+            f"Format file tidak didukung: {path!r}. Gunakan file .jsonl atau .csv."
+        )
+    trace_output(f"{len(result)} record dimuat dari {path}")
+    return result
 
 
 def write_jsonl(data: list, path: str) -> None:
@@ -82,12 +89,18 @@ def write_jsonl(data: list, path: str) -> None:
         data : list of dict
         path : path tujuan file .jsonl (folder akan dibuat otomatis bila belum ada)
     """
+    trace_start("io_utils", "write_jsonl")
+    trace_input(f"{len(data)} record → {path}")
+    trace_running()
+
     # Pastikan folder tujuan ada sebelum menulis
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         for obj in data:
             # ensure_ascii=False agar karakter non-ASCII (huruf Indonesia) tidak ter-escape
             f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+
+    trace_output(f"{len(data)} record tersimpan di {path}")
 
 
 def get_jsonl_keys(path: str) -> list:

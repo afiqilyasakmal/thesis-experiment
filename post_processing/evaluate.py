@@ -45,6 +45,7 @@ import seaborn as sns
 from sklearn.metrics import classification_report, confusion_matrix
 
 from config import LABELS
+from trace import trace_input, trace_output, trace_running, trace_start
 
 
 # Penanda NEGASI: kata/frasa yang berarti "bukan porno / bukan prostitusi".
@@ -103,12 +104,32 @@ def normalize_answer(raw_answer):
     return None
 
 
-def evaluate(input_file: str, output_jsonl: str, output_csv: str) -> None:
+def evaluate(
+    input_file: str,
+    output_jsonl: str,
+    output_csv: str,
+    prompt_type: str = "",
+    model_name: str = "",
+) -> None:
     """Menjalankan seluruh proses pembersihan + evaluasi."""
+    # Judul dinamis untuk laporan & confusion matrix:
+    #   "zero shot: Qwen/Qwen2.5-7B-Instruct" / "few shot: ..."
+    if prompt_type and model_name:
+        title = f"{prompt_type} shot: {model_name}"
+    elif model_name:
+        title = model_name
+    else:
+        title = "Confusion Matrix (4 label)"
+
+    trace_start("evaluate", "evaluate")
+    trace_input(f"input_file={input_file}, title={title!r}")
+    trace_running()
+
     # ---------- 1) Baca file hasil inferensi & bersihkan ----------
     records = []
     unmatchable_count = 0  # jawaban yang tidak bisa dipetakan ke label apa pun
     missing_count = 0      # baris yang tidak punya kolom wajib
+    first_record = True    # penanda untuk jejak contoh (hanya record pertama)
 
     with open(input_file, "r", encoding="utf-8") as f:
         for line in f:
@@ -124,6 +145,15 @@ def evaluate(input_file: str, output_jsonl: str, output_csv: str) -> None:
                 continue
 
             predicted = normalize_answer(obj.get("original_answer"))
+
+            # Jejak contoh pembersihan jawaban (hanya record pertama).
+            if first_record:
+                first_record = False
+                trace_start("evaluate", "normalize_answer")
+                trace_input(obj.get("original_answer"))
+                trace_running()
+                trace_output(predicted)
+
             if predicted is None:
                 unmatchable_count += 1
                 obj["postprocessed_answer"] = None
@@ -149,6 +179,11 @@ def evaluate(input_file: str, output_jsonl: str, output_csv: str) -> None:
                 obj.get("label", ""),
             ])
 
+    trace_output(
+        f"hasil bersih → {output_jsonl}; laporan → {output_csv}; "
+        f"{unmatchable_count} jawaban tak terpetakan, {missing_count} field hilang"
+    )
+
     # ---------- 3) Evaluasi metrik ----------
     y_true, y_pred = [], []
     for obj in records:
@@ -166,6 +201,9 @@ def evaluate(input_file: str, output_jsonl: str, output_csv: str) -> None:
         return
 
     # ---------- 4) Laporan klasifikasi & confusion matrix ----------
+    print("\n" + "=" * 60)
+    print(f"EVALUASI — {title}")
+    print("=" * 60)
     print("\n--- Classification Report ---")
     print(classification_report(y_true, y_pred, labels=LABELS, zero_division=0))
 
@@ -175,7 +213,7 @@ def evaluate(input_file: str, output_jsonl: str, output_csv: str) -> None:
                 xticklabels=LABELS, yticklabels=LABELS)
     plt.xlabel("Predicted")
     plt.ylabel("True")
-    plt.title("Confusion Matrix (4 label)")
+    plt.title(title)
     plt.tight_layout()
 
     cm_path = os.path.splitext(output_csv)[0] + "_confusion_matrix.png"
@@ -194,6 +232,16 @@ if __name__ == "__main__":
                         help="Path file JSONL hasil bersih.")
     parser.add_argument("--output_csv", type=str, required=True,
                         help="Path file CSV laporan evaluasi.")
+    parser.add_argument("--prompt_type", type=str, choices=["zero", "few"], default="",
+                        help="Mode prompt (zero/few) untuk judul laporan — opsional.")
+    parser.add_argument("--model_name", type=str, default="",
+                        help="Nama model untuk judul laporan — opsional.")
     args = parser.parse_args()
 
-    evaluate(args.input_file, args.output_jsonl, args.output_csv)
+    evaluate(
+        args.input_file,
+        args.output_jsonl,
+        args.output_csv,
+        prompt_type=args.prompt_type,
+        model_name=args.model_name,
+    )

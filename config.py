@@ -68,3 +68,23 @@ DEFAULT_MAX_NEW_TOKENS = 30
 
 # Jumlah contoh per label pada mode few-shot (lihat get_example/ & prompts.py).
 DEFAULT_NUM_EXAMPLES = 5
+
+# ---------------------------------------------------------------------------
+# 4. Daftar model yang dicoba dalam eksperimen (repo ID HuggingFace)
+# ---------------------------------------------------------------------------
+# Semua model di bawah bertipe CausalLM (decoder-only) varian -Instruct/chat,
+# sehingga cocok dengan load_model_tokenizer() dan apply_chat_template().
+#
+# Catatan sebelum menjalankan:
+#   - meta-llama/Llama-3.1-8B-Instruct adalah model GATED: harus klik "Agree"
+#     di halaman model HuggingFace dulu, lalu lempar token lewat --hf_token.
+#   - Model 8B (Llama-3.1-8B, SahabatAI-8B) dalam bfloat16 ~16GB: muat di 1 GPU
+#     16GB tapi ketat; kalau OOM, ubah load_model_tokenizer() ke device_map="auto"
+#     agar memakai 2 GPU sekaligus.
+MODEL_LIST = [
+    "mistralai/Mistral-7B-Instruct-v0.3",
+    "meta-llama/Llama-3.1-8B-Instruct",
+    "deepseek-ai/deepseek-llm-7b-chat",
+    "Qwen/Qwen2.5-7B-Instruct",
+    "GoToCompany/llama3-8b-cpt-sahabatai-v1-instruct",
+]
