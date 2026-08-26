@@ -19,7 +19,7 @@ def _format_label_list() -> str:
     Menyusun daftar label beserta deskripsinya menjadi blok teks untuk prompt.
 
     Contoh hasil (disingkat):
-        - non_porno_non_prostitusi (teks normal ...)
+        - non_porno (teks normal ...)
         - percakapan_porno (percakapan ...)
         ...
     """

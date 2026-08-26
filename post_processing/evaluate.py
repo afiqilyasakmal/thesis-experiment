@@ -84,9 +84,9 @@ def normalize_answer(raw_answer):
     if text in LABELS:
         return text
 
-    # 2) Negasi -> kelas "non_porno_non_prostitusi" (paling awal agar aman).
+    # 2) Negasi -> kelas "non_porno" (paling awal agar aman).
     if any(marker in text for marker in _NEGATION_MARKERS):
-        return "non_porno_non_prostitusi"
+        return "non_porno"
 
     # 3) Penyebar konten porno.
     if any(marker in text for marker in _PENYEBAR_MARKERS):

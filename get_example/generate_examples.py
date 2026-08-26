@@ -20,7 +20,7 @@ Struktur output (satu baris per data uji):
         "text": "isi teks uji",
         "label": "label sebenarnya dari teks uji",
         "examples": {
-            "non_porno_non_prostitusi": [["teks", "label"], ...],
+            "non_porno": [["teks", "label"], ...],
             "percakapan_porno":        [["teks", "label"], ...],
             "penyebar_konten_porno":   [["teks", "label"], ...],
             "penjaja_seks":            [["teks", "label"], ...]

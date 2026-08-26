@@ -12,7 +12,7 @@ Catatan penting terkait label:
     Eksperimen ini memakai SKENARIO 2 dari task IndoNLU P2, yaitu klasifikasi dengan
     EMPAT kelas (bukan dua kelas seperti di folder reference/). Keempat label
     tersebut adalah:
-        1. non_porno_non_prostitusi  -> teks normal
+        1. non_porno  -> teks normal
         2. percakapan_porno          -> percakapan berunsur pornografi
         3. penyebar_konten_porno     -> penyebar konten pornografi
         4. penjaja_seks              -> penawaran jasa seksual / prostitusi
@@ -24,7 +24,7 @@ Catatan penting terkait label:
 # Urutan list ini sengaja mengikuti urutan label pada scenario 2 IndoNLU.
 # Urutan ini dipakai konsisten oleh label2id / id2label dan file evaluasi.
 LABELS = [
-    "non_porno_non_prostitusi",
+    "non_porno",
     "percakapan_porno",
     "penyebar_konten_porno",
     "penjaja_seks",
@@ -36,7 +36,7 @@ ID2LABEL = {idx: label for label, idx in LABEL2ID.items()}
 # Deskripsi singkat tiap label dalam bahasa Indonesia.
 # Dipakai saat menyusun prompt, supaya model paham arti tiap kategori.
 LABEL_DESCRIPTIONS = {
-    "non_porno_non_prostitusi": "teks normal yang TIDAK mengandung pornografi maupun prostitusi",
+    "non_porno": "teks normal yang TIDAK mengandung pornografi maupun prostitusi",
     "percakapan_porno": "percakapan yang mengandung unsur pornografi",
     "penyebar_konten_porno": "teks yang menyebarkan atau membagikan konten pornografi",
     "penjaja_seks": "teks yang menawarkan jasa seksual (prostitusi)",

@@ -4,7 +4,7 @@ Eksperimen ini mereplikasi skema dari repo referensi (folder `reference/`), teta
 dengan dua perbedaan utama:
 
 1. **Label berjumlah 4** (bukan 2), sesuai task IndoNLU P2 skenario 2:
-   - `non_porno_non_prostitusi`
+   - `non_porno`
    - `percakapan_porno`
    - `penyebar_konten_porno`
    - `penjaja_seks`
