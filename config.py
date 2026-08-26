@@ -33,15 +33,6 @@ LABELS = [
 LABEL2ID = {label: idx for idx, label in enumerate(LABELS)}
 ID2LABEL = {idx: label for label, idx in LABEL2ID.items()}
 
-# Deskripsi singkat tiap label dalam bahasa Indonesia.
-# Dipakai saat menyusun prompt, supaya model paham arti tiap kategori.
-LABEL_DESCRIPTIONS = {
-    "non_porno": "teks normal yang TIDAK mengandung pornografi maupun prostitusi",
-    "percakapan_porno": "percakapan yang mengandung unsur pornografi",
-    "penyebar_konten_porno": "teks yang menyebarkan atau membagikan konten pornografi",
-    "penjaja_seks": "teks yang menawarkan jasa seksual (prostitusi)",
-}
-
 # ---------------------------------------------------------------------------
 # 2. Path dataset & output (relatif terhadap root proyek = folder experiment/)
 # ---------------------------------------------------------------------------

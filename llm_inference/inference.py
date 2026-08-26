@@ -26,13 +26,14 @@ def _build_prompt(record: dict, prompt_type: str, num_examples: int) -> str:
         prompt_type  : "zero" (zero-shot) atau "few" (few-shot).
         num_examples : jumlah contoh per label (hanya dipakai saat few-shot).
     """
-    text = record["text"]
+    # list_inference_input mengikuti konvensi reference/: [0]=idx, [1]=text, [2]=label.
+    list_inference_input = [record.get("idx"), record["text"], record.get("label")]
 
     if prompt_type == "zero":
-        return build_zero_shot_prompt(text)
+        return build_zero_shot_prompt(list_inference_input)
     elif prompt_type == "few":
         # record["examples"] berisi contoh-contoh few-shot dari tahap get_example.
-        return build_few_shot_prompt(text, record.get("examples", {}), num_examples)
+        return build_few_shot_prompt(list_inference_input, record.get("examples", {}), num_examples)
     else:
         raise ValueError(f"prompt_type tidak dikenal: {prompt_type!r} (pilih 'zero' atau 'few')")
 
