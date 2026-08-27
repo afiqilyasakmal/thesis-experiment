@@ -100,7 +100,7 @@ def generate_answer(
     tokenizer,
     model,
     device: str,
-    max_new_tokens: int = 30,
+    max_new_tokens: int = 15,
     return_scores: bool = False,
 ):
     """
@@ -118,23 +118,10 @@ def generate_answer(
         - return_scores=False -> str (jawaban mentah dari model)
         - return_scores=True  -> tuple (jawaban: str, subtoken: list[str], skor: list[float])
     """
-    # Bungkus prompt ke format chat (satu pesan role "user"), lalu terapkan CHAT TEMPLATE.
-    # Model varian -Instruct (mis. Qwen2.5-*-Instruct) butuh token khusus seperti
-    # <|im_start|>user ... <|im_end|><|im_start|>assistant agar bisa mengikuti instruksi.
-    # Tanpa chat template, model justru "melanjutkan teks" (mengulang contoh / daftar
-    # kategori) alih-alih menjawab hanya labelnya.
-    if tokenizer.chat_template is not None:
-        messages = [{"role": "user", "content": prompt}]
-        prompt = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
-    else:
-        # Base model (tanpa -Instruct) tidak punya chat_template. Ini bukan cara yang
-        # disarankan untuk klasifikasi; peringatan ini untuk mencegah hasil kacau.
-        print(
-            "[PERINGATAN] Tokenizer tidak punya chat_template. "
-            "Pakai model varian -Instruct (mis. Qwen/Qwen2.5-7B-Instruct)."
-        )
+    # CATATAN (mode REPRODUKSI baseline): prompt MENTAH langsung di-tokenize TANPA
+    # chat template — persis seperti yang dilakukan reference/ (Rafi). Chat template
+    # sengaja dimatikan dulu agar hasil sebanding dengan baseline; bisa diaktifkan
+    # kembali nanti untuk eksperimen lanjutan.
 
     # Tokenisasi prompt menjadi tensor, lalu pindahkan ke device yang sama dengan model.
     inputs = tokenizer([prompt], return_tensors="pt").to(device)
@@ -152,8 +139,9 @@ def generate_answer(
     input_length = inputs.input_ids.shape[1]
     generated_tokens = outputs.sequences[:, input_length:]
 
-    # Ubah token hasil generasi menjadi teks jawaban.
-    answer = tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)[0].strip()
+    # Ubah token hasil generasi menjadi teks jawaban (tanpa skip_special_tokens,
+    # mengikuti reference/ agar kolom original_answer persis sama).
+    answer = tokenizer.batch_decode(generated_tokens)[0]
 
     if not return_scores:
         return answer

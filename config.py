@@ -55,7 +55,8 @@ DEFAULT_DEVICE = "cuda"
 DEFAULT_DTYPE = "bfloat16"
 
 # Maksimum token baru yang dihasilkan model. Jawaban label biasanya pendek (< 10 token).
-DEFAULT_MAX_NEW_TOKENS = 30
+# Disamakan dengan reference/ (Rafi) yang memakai 15 token.
+DEFAULT_MAX_NEW_TOKENS = 15
 
 # Jumlah contoh per label pada mode few-shot (lihat get_example/ & prompts.py).
 DEFAULT_NUM_EXAMPLES = 5
@@ -64,7 +65,7 @@ DEFAULT_NUM_EXAMPLES = 5
 # 4. Daftar model yang dicoba dalam eksperimen (repo ID HuggingFace)
 # ---------------------------------------------------------------------------
 # Semua model di bawah bertipe CausalLM (decoder-only) varian -Instruct/chat,
-# sehingga cocok dengan load_model_tokenizer() dan apply_chat_template().
+# sehingga cocok dengan load_model_tokenizer() (AutoModelForCausalLM).
 #
 # Catatan sebelum menjalankan:
 #   - meta-llama/Llama-3.1-8B-Instruct adalah model GATED: harus klik "Agree"

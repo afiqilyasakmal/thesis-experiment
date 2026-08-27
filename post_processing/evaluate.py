@@ -76,7 +76,8 @@ def normalize_answer(raw_answer):
     diperiksa lewat file CSV laporan.
 
     Mengembalikan:
-        label kanonik (str) bila berhasil dipetakan, atau None bila tidak bisa.
+        label kanonik (str). Tidak pernah None: bila tidak ada marker yang cocok,
+        fallback ke "non_porno" (kelas negatif), mengikuti reference/.
     """
     text = (raw_answer or "").strip().lower()
 
@@ -101,7 +102,10 @@ def normalize_answer(raw_answer):
     if "percakapan" in text or "porno" in text or "pornografi" in text:
         return "percakapan_porno"
 
-    return None
+    # 6) Fallback akhir (kasus B): jawaban yang tidak match apa pun dipetakan ke
+    #    kelas negatif "non_porno" — konservatif, sama seperti reference/ yang
+    #    jatuh ke "non_pornografi" — dan TETAP ikut dievaluasi.
+    return "non_porno"
 
 
 def evaluate(
@@ -127,7 +131,6 @@ def evaluate(
 
     # ---------- 1) Baca file hasil inferensi & bersihkan ----------
     records = []
-    unmatchable_count = 0  # jawaban yang tidak bisa dipetakan ke label apa pun
     missing_count = 0      # baris yang tidak punya kolom wajib
     first_record = True    # penanda untuk jejak contoh (hanya record pertama)
 
@@ -154,12 +157,7 @@ def evaluate(
                 trace_running()
                 trace_output(predicted)
 
-            if predicted is None:
-                unmatchable_count += 1
-                obj["postprocessed_answer"] = None
-            else:
-                obj["postprocessed_answer"] = predicted
-
+            obj["postprocessed_answer"] = predicted
             records.append(obj)
 
     # ---------- 2) Simpan hasil bersih (JSONL + CSV) ----------
@@ -181,7 +179,7 @@ def evaluate(
 
     trace_output(
         f"hasil bersih → {output_jsonl}; laporan → {output_csv}; "
-        f"{unmatchable_count} jawaban tak terpetakan, {missing_count} field hilang"
+        f"{missing_count} field hilang"
     )
 
     # ---------- 3) Evaluasi metrik ----------
@@ -193,7 +191,6 @@ def evaluate(
 
     print(f"\n--- Ringkasan Pemrosesan ---")
     print(f"Total record diproses : {len(records)}")
-    print(f"Tidak bisa dipetakan  : {unmatchable_count}")
     print(f"Field hilang          : {missing_count}")
 
     if not y_true:

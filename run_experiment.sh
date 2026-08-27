@@ -188,7 +188,7 @@ fi
 # TAHAP 1 — Inferensi (5 model x {zero, few})
 # =============================================================================
 run_inference() {
-  local repo="$1" ptype="$2" slug="$3"
+  local idx="$1" repo="$2" ptype="$3" slug="$4"
   local in out desc
   if [ "$ptype" = "zero" ]; then
     in="$TEST_CSV"
@@ -197,7 +197,7 @@ run_inference() {
     in="$EXAMPLES_JSONL"
     out="output/few_${slug}.jsonl"
   fi
-  desc="inferensi ${ptype}-shot: ${repo}"
+  desc="inferensi ${ptype}-shot (model $((idx+1))/${#REPOS[@]}): ${repo}"
 
   local cmd=(python llm_inference/main.py
     --input_file_path "$in"
@@ -217,19 +217,19 @@ run_inference() {
 
 for i in "${!REPOS[@]}"; do
   repo="${REPOS[$i]}"; slug="${SLUGS[$i]}"
-  [ "$RUN_INFER_ZERO" = "1" ] && run_inference "$repo" zero "$slug"
-  [ "$RUN_INFER_FEW"  = "1" ] && run_inference "$repo" few  "$slug"
+  [ "$RUN_INFER_ZERO" = "1" ] && run_inference "$i" "$repo" zero "$slug"
+  [ "$RUN_INFER_FEW"  = "1" ] && run_inference "$i" "$repo" few  "$slug"
 done
 
 # =============================================================================
 # TAHAP 2 — Evaluasi (5 model x {zero, few})
 # =============================================================================
 run_evaluate() {
-  local repo="$1" ptype="$2" slug="$3"
+  local idx="$1" repo="$2" ptype="$3" slug="$4"
   local in="output/${ptype}_${slug}.jsonl"
   local oj="output/${ptype}_${slug}_processed.jsonl"
   local oc="output/${ptype}_${slug}_report.csv"
-  local desc="evaluasi ${ptype}-shot: ${repo}"
+  local desc="evaluasi ${ptype}-shot (model $((idx+1))/${#REPOS[@]}): ${repo}"
 
   step "$oc" "$desc" \
     python post_processing/evaluate.py \
@@ -242,8 +242,8 @@ run_evaluate() {
 
 for i in "${!REPOS[@]}"; do
   repo="${REPOS[$i]}"; slug="${SLUGS[$i]}"
-  [ "$RUN_EVAL_ZERO" = "1" ] && run_evaluate "$repo" zero "$slug"
-  [ "$RUN_EVAL_FEW"  = "1" ] && run_evaluate "$repo" few  "$slug"
+  [ "$RUN_EVAL_ZERO" = "1" ] && run_evaluate "$i" "$repo" zero "$slug"
+  [ "$RUN_EVAL_FEW"  = "1" ] && run_evaluate "$i" "$repo" few  "$slug"
 done
 
 # ---------------------------------------------------------------------------

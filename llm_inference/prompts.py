@@ -28,19 +28,19 @@ def build_zero_shot_prompt(list_inference_input: list) -> str:
     tugas + daftar kategori beserta deskripsinya.
     """
     text = list_inference_input[1]
-    return f"""Tugas: Diberikan sebuah teks pada input berikut, tentukan apakah teks tersebut mengandung unsur pornografi dengan kategori tertentu atau tidak.
+    return f"""Tugas: Diberikan sebuah teks pada input berikut, tentukan apakah teks tersebut mengandung unsur pornografi dengan kategori tertentu atau tidak. 
 
 Instruksi:
-Keluaran label jawaban hanya dapat berupa: 'percakapan_porno', 'penyebar_konten_porno', 'penjaja_seks', atau 'non_porno'
-'percakapan_porno': Teks berisi obrolan, cerita, atau bahasan seksual namun tidak menyebarkan konten porno maupun menawarkan layanan seks.
-'penyebar_konten_porno': Teks yang membagikan atau mempromosikan media (foto, audio, atau video) pornografi maupun tautan ke suatu halaman web konten pornografi.
-'penjaja_seks': Teks yang memberikan penawaran layanan seksual baik prostitusi langsung maupun layanan online seperti layanan video call sex.
-'non_porno': Teks sama sekali tidak membahas terkait pornografi, baik obrolan terkait seksual maupun layanan prostitusi.
+Keluaran label jawaban hanya dapat berupa: 'percakapan_porno', 'penyebar_konten_porno', atau 'penjaja_seks', 'non_porno'
+⁠'percakapan_porno': Teks berisi obrolan, cerita, atau bahasan seksual namun tidak menyebarkan konten porno maupun menawarkan layanan seks.
+⁠'penyebar_konten_porno': Teks yang membagikan atau mempromosikan media (foto, audio, atau video) pornografi maupun tautan ke suatu halaman web konten pornografi.
+⁠'penjaja_seks': Teks yang memberikan penawaran layanan seksual baik prostitusi langsung maupun layanan online seperti layanan video call sex.
+⁠'non_porno': Teks sama sekali tidak membahas terkait pornografi, baik obrolan terkait seksual maupun layanan prostitusi.
 Jangan memberikan penjelasan atas jawaban Anda.
 
 Giliran Anda:
 Input:
-Teks: '{text}'
+- Teks: '{text}'
 
 Jawaban:
 """
@@ -77,15 +77,15 @@ def build_few_shot_prompt(
     """
     text = list_inference_input[1]
     formatted_example = _build_formatted_example(examples, num_examples)
-    return f"""Tugas: Anda adalah sistem moderasi konten. Diberikan sebuah teks pada input berikut, klasifikasikan teks tersebut ke dalam salah satu kategori spesifik.
+    return f"""Tugas: Diberikan sebuah teks pada input berikut, tentukan apakah teks tersebut mengandung unsur pornografi dengan kategori tertentu atau tidak. 
 
 Instruksi:
-- Keluaran label jawaban hanya dapat berupa: 'non_porno', 'percakapan_porno', 'penyebar_konten_porno', atau 'penjaja_seks'.
-- 'non_porno': Teks tidak mengandung unsur seksual atau prostitusi. (Penting: Umpatan/kata kasar tanpa konteks seksual masuk ke kelas ini).
-- 'percakapan_porno': Teks berisi obrolan, cerita, atau bahasa seksual eksplisit (sexting), tetapi tidak ada indikasi menyebarkan file/link atau transaksi jual-beli.
-- 'penyebar_konten_porno': Teks yang membagikan, mempromosikan, atau meminta tautan/file media (foto/video) pornografi.
-- 'penjaja_seks': Teks yang menawarkan atau mencari transaksi layanan seksual komersial (prostitusi, Open BO, VCS berbayar).
-- Mohon untuk tidak memberikan karakter tambahan, tanda baca ekstra, atau penjelasan apa pun atas jawaban Anda.
+Keluaran label jawaban hanya dapat berupa: 'percakapan_porno', 'penyebar_konten_porno', atau 'penjaja_seks', 'non_porno'
+⁠'percakapan_porno': Teks berisi obrolan, cerita, atau bahasan seksual namun tidak menyebarkan konten porno maupun menawarkan layanan seks.
+⁠'penyebar_konten_porno': Teks yang membagikan atau mempromosikan media (foto, audio, atau video) pornografi maupun tautan ke suatu halaman web konten pornografi.
+⁠'penjaja_seks': Teks yang memberikan penawaran layanan seksual baik prostitusi langsung maupun layanan online seperti layanan video call sex.
+⁠'non_porno': Teks sama sekali tidak membahas terkait pornografi, baik obrolan terkait seksual maupun layanan prostitusi.
+Jangan memberikan penjelasan atas jawaban Anda.
 
 Contoh:
 {formatted_example}

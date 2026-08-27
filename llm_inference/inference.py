@@ -68,6 +68,12 @@ def run_bulk_inference(
     )
 
     # 1) Muat model & tokenizer satu kali untuk seluruh data.
+    #    Banner ini SELALU dicetak (bukan hanya saat verbose) supaya di log terlihat
+    #    jelas model & mode mana yang sedang dikerjakan.
+    print(
+        f"\n>>> LLM: {model_name} | MODE: {prompt_type}-shot | "
+        f"DEVICE: {device} | max_new_tokens: {max_new_tokens}"
+    )
     if verbose:
         print(f"Memuat model dan tokenizer: {model_name} (device={device}, dtype={dtype})")
     model, tokenizer = load_model_tokenizer(model_name, hf_token, device, dtype)
@@ -115,14 +121,16 @@ def run_bulk_inference(
         if i == 0:
             trace_start("model_utils", "generate_answer")
             trace_input(
-                f"prompt + chat_template, max_new_tokens={max_new_tokens}, greedy (do_sample=False)"
+                f"prompt mentah (tanpa chat template), max_new_tokens={max_new_tokens}, greedy (do_sample=False)"
             )
             trace_running()
             trace_output(record["original_answer"])
 
-        if verbose:
+        # Progres: selalu cetak tiap 100 record (atau record terakhir) supaya terlihat
+        # LLM sedang memproses bagian mana; saat verbose, cetak setiap record.
+        if verbose or (i + 1) % 100 == 0 or (i + 1) == total:
             elapsed = time.time() - start_time
-            print(f"Memproses {i + 1}/{total} (berjalan {elapsed:.2f} detik)")
+            print(f"  [progres] {i + 1}/{total} record ({elapsed:.2f}s)")
 
     # 4) Simpan hasil.
     write_jsonl(records, output_file_path)
