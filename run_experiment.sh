@@ -120,9 +120,19 @@ done
 # ---------------------------------------------------------------------------
 FAILED=()
 N_SKIP=0
+INFER_TIMES=()   # akumulasi "slug|mode|start|end|durasi_detik" tiap inferensi (untuk ringkasan akhir)
 
 log()  { printf '\n\033[1;34m=== %s ===\033[0m\n' "$1"; }
 warn() { printf '\033[1;33m[perhatian]\033[0m %s\n' "$1"; }
+
+# Format durasi (detik) menjadi "1h02m03s" / "2m05s" / "7s".
+fmt_dur() {
+  local s=$1 h m
+  h=$((s / 3600)); m=$(((s % 3600) / 60)); s=$((s % 60))
+  if [ "$h" -gt 0 ]; then printf '%dh%02dm%02ds' "$h" "$m" "$s"
+  elif [ "$m" -gt 0 ]; then printf '%dm%02ds' "$m" "$s"
+  else printf '%ds' "$s"; fi
+}
 
 # Jalankan satu perintah. Gagal -> dicatat, lanjut (atau berhenti bila STOP_ON_ERROR=1).
 run() {
@@ -212,7 +222,17 @@ run_inference() {
     cmd+=(--hf_token "$HF_TOKEN")
   fi
 
+  # Catat waktu mulai/selesai inferensi (diringkas jadi tabel di akhir script).
+  local skipped=0 t0 t1 t0e t1e
+  if [ -f "$out" ] && [ "$FORCE" != "1" ]; then skipped=1; fi
+  t0=$(date '+%F %T'); t0e=$(date +%s)
   step "$out" "$desc" "${cmd[@]}"
+  t1=$(date '+%F %T'); t1e=$(date +%s)
+  if [ "$skipped" = "1" ]; then
+    INFER_TIMES+=("$slug|$ptype|SKIP|-|-|-")
+  else
+    INFER_TIMES+=("$slug|$ptype|$t0|$t1|$((t1e - t0e))")
+  fi
 }
 
 for i in "${!REPOS[@]}"; do
@@ -245,6 +265,24 @@ for i in "${!REPOS[@]}"; do
   [ "$RUN_EVAL_ZERO" = "1" ] && run_evaluate "$i" "$repo" zero "$slug"
   [ "$RUN_EVAL_FEW"  = "1" ] && run_evaluate "$i" "$repo" few  "$slug"
 done
+
+# ---------------------------------------------------------------------------
+# Ringkasan waktu inferensi (per model & mode) — mudah dicopy-paste
+# ---------------------------------------------------------------------------
+if [ "${#INFER_TIMES[@]}" -gt 0 ]; then
+  printf '\n\033[1;36m=== WAKTU INFERENSI PER MODEL ===\033[0m\n'
+  printf '%-16s %-6s %-20s %-20s %-10s\n' "model" "mode" "start" "end" "durasi"
+  printf '%-16s %-6s %-20s %-20s %-10s\n' "-----" "----" "-----" "---" "------"
+  for row in "${INFER_TIMES[@]}"; do
+    IFS='|' read -r slug ptype t0 t1 dur <<< "$row"
+    if [ "$t0" = "SKIP" ]; then
+      printf '%-16s %-6s %s\n' "$slug" "$ptype" "SKIP (file sudah ada)"
+    else
+      printf '%-16s %-6s %-20s %-20s %-10s\n' \
+        "$slug" "$ptype" "$t0" "$t1" "$(fmt_dur "$dur")"
+    fi
+  done
+fi
 
 # ---------------------------------------------------------------------------
 # Ringkasan akhir
