@@ -65,6 +65,10 @@ python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
 Mengambil contoh berlabel dari `train.csv` untuk tiap kelas, lalu menyisipkannya ke
 setiap baris `test.csv`. Hasilnya file JSONL `test_with_example.jsonl`.
 
+Ada dua varian pemilihan contoh (mirip `reference/` Alvaro):
+
+**Varian random** (`generate_examples.py`):
+
 ```bash
 python get_example/generate_examples.py \
     --train_file dataset/train.csv \
@@ -72,6 +76,23 @@ python get_example/generate_examples.py \
     --num_examples 5 \
     --output_file dataset/test_with_example.jsonl
 ```
+
+**Varian BERT-similarity** (`generate_examples_bert.py`) — mengambil top-N contoh
+latih paling mirip secara semantik untuk tiap kelas (4 label), dengan fungsi
+similaritas cosine / dot / euclidean / manhattan:
+
+```bash
+python get_example/generate_examples_bert.py \
+    --train_file dataset/train.csv \
+    --test_file dataset/test.csv \
+    --num_examples 5 \
+    --sim_function cosine \
+    --bert_model indobenchmark/indobert-large-p2 \
+    --output_file dataset/test_with_example_bert_cosine.jsonl
+```
+
+> Output kedua varian memiliki struktur `examples` yang sama, sehingga hasil keduanya
+> bisa langsung dipakai sebagai input `--input_file_path` pada Tahap 1 (mode `few`).
 
 ### Tahap 1 — Inferensi LLM
 

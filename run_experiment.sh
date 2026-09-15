@@ -3,18 +3,22 @@
 # run_experiment.sh
 # ================
 # Otomasi seluruh alur eksperimen klasifikasi teks 4 label (IndoNLU P2 sken 2):
-#   Tahap 0  : generate contoh few-shot (generate_examples.py)
-#   Tahap 1  : inferensi LLM (llm_inference/main.py) — 5 model x {zero, few}
+#   Tahap 0  : generate contoh few-shot (generate_examples.py [random] atau
+#              generate_examples_bert.py [BERT-similarity])
+#   Tahap 1  : inferensi LLM (llm_inference/main.py) — 5 model x {zero, few, few-bert}
 #   Tahap 2  : pembersihan + evaluasi (post_processing/evaluate.py)
 #
 # Pemakaian (dari folder experiment/ atau dari mana pun):
 #   ./run_experiment.sh                # generate (jika perlu) + zero + few + eval
 #   ./run_experiment.sh zero           # hanya zero-shot (inferensi + eval)
-#   ./run_experiment.sh few            # hanya few-shot  (inferensi + eval)
-#   ./run_experiment.sh infer          # hanya inferensi (zero + few)
-#   ./run_experiment.sh eval           # hanya evaluasi (zero + few)
-#   ./run_experiment.sh generate       # hanya generate contoh few-shot
-#   ./run_experiment.sh all            # sama dengan tanpa argumen
+#   ./run_experiment.sh few            # hanya few-shot random (inferensi + eval)
+#   ./run_experiment.sh bert           # hanya few-shot BERT-similarity (inferensi + eval)
+#   ./run_experiment.sh infer          # hanya inferensi (zero + few random)
+#   ./run_experiment.sh eval           # hanya evaluasi (zero + few random)
+#   ./run_experiment.sh generate       # hanya generate contoh few-shot (random)
+#   ./run_experiment.sh generate-bert  # hanya generate contoh few-shot (BERT, semua sim)
+#   ./run_experiment.sh all            # random (zero + few); TANPA BERT
+#   ./run_experiment.sh all bert       # random + BERT sekaligus
 #
 # Variabel lingkungan (opsional, bisa digabung dengan argumen di atas):
 #   HF_TOKEN="hf_xxx"   token HuggingFace untuk model gated (Llama-3.1-8B)
@@ -38,6 +42,7 @@ HF_TOKEN="${HF_TOKEN:-}"
 DEVICE="${DEVICE:-cuda}"
 NUM_EXAMPLES="${NUM_EXAMPLES:-5}"
 SEED="${SEED:-42}"
+BERT_MODEL="${BERT_MODEL:-indobenchmark/indobert-large-p2}"
 FORCE="${FORCE:-0}"
 DRY_RUN="${DRY_RUN:-0}"
 STOP_ON_ERROR="${STOP_ON_ERROR:-0}"
@@ -45,6 +50,9 @@ STOP_ON_ERROR="${STOP_ON_ERROR:-0}"
 TEST_CSV="dataset/test.csv"
 TRAIN_CSV="dataset/train.csv"
 EXAMPLES_JSONL="dataset/test_with_example.jsonl"
+
+# Fungsi similaritas untuk varian BERT (generate_examples_bert.py).
+SIM_FUNCTIONS=(cosine dot euclidean manhattan)
 
 # ---------------------------------------------------------------------------
 # Pemetaan model: dua array paralel (repo HuggingFace -> slug nama file).
@@ -74,28 +82,34 @@ Pemakaian:
   ./run_experiment.sh [tahap ...]
 
 Tahap (boleh digabung; tanpa argumen = "all"):
-  generate|gen   generate contoh few-shot (dataset/test_with_example.jsonl)
-  infer          inferensi saja (zero + few)
-  zero           zero-shot: inferensi + evaluasi
-  few            few-shot : inferensi + evaluasi
-  eval           evaluasi saja (zero + few)
-  all            semuanya (generate + zero + few + eval)
+  generate|gen         generate contoh few-shot RANDOM (dataset/test_with_example.jsonl)
+  generate-bert|genb   generate contoh few-shot BERT (dataset/test_with_example_bert_<sim>.jsonl)
+  infer                inferensi saja (zero + few random)
+  zero                 zero-shot: inferensi + evaluasi
+  few                  few-shot random: inferensi + evaluasi
+  bert                 few-shot BERT-similarity: inferensi + evaluasi (4 sim_function)
+  eval                 evaluasi saja (zero + few random)
+  all                  random: generate + zero + few + eval (TANPA BERT)
+
+Contoh gabungan:
+  ./run_experiment.sh all bert     # random + BERT sekaligus
 
 Variabel lingkungan (opsional):
-  HF_TOKEN="hf_xxx"   token gated model (Llama-3.1-8B)
-  DEVICE=cuda         cuda / cpu
-  NUM_EXAMPLES=5      contoh per label (few-shot)
-  FORCE=1             ulang walau output sudah ada
-  DRY_RUN=1           hanya cetak perintah tanpa eksekusi
-  STOP_ON_ERROR=1     berhenti saat langkah gagal
+  HF_TOKEN="hf_xxx"        token gated model (Llama-3.1-8B)
+  DEVICE=cuda              cuda / cpu
+  NUM_EXAMPLES=5           contoh per label (few-shot)
+  BERT_MODEL="..."         model SentenceTransformer (default indobenchmark/indobert-large-p2)
+  FORCE=1                  ulang walau output sudah ada
+  DRY_RUN=1                hanya cetak perintah tanpa eksekusi
+  STOP_ON_ERROR=1          berhenti saat langkah gagal
 EOF
 }
 
 # ---------------------------------------------------------------------------
 # Pemilihan tahap yang dijalankan
 # ---------------------------------------------------------------------------
-RUN_GENERATE=0
-RUN_INFER_ZERO=0; RUN_INFER_FEW=0
+RUN_GENERATE=0; RUN_GENERATE_BERT=0
+RUN_INFER_ZERO=0; RUN_INFER_FEW=0; RUN_BERT=0
 RUN_EVAL_ZERO=0;  RUN_EVAL_FEW=0
 
 if [ "$#" -eq 0 ]; then
@@ -105,10 +119,12 @@ fi
 for arg in "$@"; do
   case "$arg" in
     all) RUN_GENERATE=1; RUN_INFER_ZERO=1; RUN_INFER_FEW=1; RUN_EVAL_ZERO=1; RUN_EVAL_FEW=1 ;;
-    generate|gen) RUN_GENERATE=1 ;;
+    generate|gen)          RUN_GENERATE=1 ;;
+    generate-bert|genb)    RUN_GENERATE_BERT=1 ;;
     infer)        RUN_INFER_ZERO=1; RUN_INFER_FEW=1 ;;
     zero)         RUN_INFER_ZERO=1; RUN_EVAL_ZERO=1 ;;
     few)          RUN_INFER_FEW=1;  RUN_EVAL_FEW=1 ;;
+    bert)         RUN_GENERATE_BERT=1; RUN_BERT=1 ;;
     eval)         RUN_EVAL_ZERO=1;  RUN_EVAL_FEW=1 ;;
     -h|--help|help) usage; exit 0 ;;
     *) echo "Argumen tak dikenal: $arg (jalankan '$0 --help' untuk bantuan)" >&2; exit 2 ;;
@@ -165,11 +181,16 @@ step() {
   run "$desc" "$@"
 }
 
+# Path file contoh few-shot BERT untuk sebuah fungsi similaritas.
+bert_examples_file() {
+  echo "dataset/test_with_example_bert_${1}.jsonl"
+}
+
 # ---------------------------------------------------------------------------
 # Ringkasan konfigurasi
 # ---------------------------------------------------------------------------
-printf '\033[1;32mrun_experiment.sh\033[0m — device=%s, num_examples=%s, seed=%s\n' \
-  "$DEVICE" "$NUM_EXAMPLES" "$SEED"
+printf '\033[1;32mrun_experiment.sh\033[0m — device=%s, num_examples=%s, seed=%s, bert_model=%s\n' \
+  "$DEVICE" "$NUM_EXAMPLES" "$SEED" "$BERT_MODEL"
 printf 'Model yang diproses:\n'
 for i in "${!REPOS[@]}"; do
   printf '  - %s  (slug: %s)\n' "${REPOS[$i]}" "${SLUGS[$i]}"
@@ -192,6 +213,21 @@ if [ "$RUN_GENERATE" = "1" ] || [ "$RUN_INFER_FEW" = "1" ]; then
       --num_examples "$NUM_EXAMPLES" \
       --output_file "$EXAMPLES_JSONL" \
       --seed "$SEED"
+fi
+
+# Varian BERT: generate contoh few-shot berbasis similaritas semantik untuk tiap
+# fungsi similaritas (cosine/dot/euclidean/manhattan).
+if [ "$RUN_GENERATE_BERT" = "1" ] || [ "$RUN_BERT" = "1" ]; then
+  for sim in "${SIM_FUNCTIONS[@]}"; do
+    step "$(bert_examples_file "$sim")" "generate contoh few-shot BERT-${sim}" \
+      python get_example/generate_examples_bert.py \
+        --train_file "$TRAIN_CSV" \
+        --test_file "$TEST_CSV" \
+        --num_examples "$NUM_EXAMPLES" \
+        --sim_function "$sim" \
+        --bert_model "$BERT_MODEL" \
+        --output_file "$(bert_examples_file "$sim")"
+  done
 fi
 
 # =============================================================================
@@ -265,6 +301,61 @@ for i in "${!REPOS[@]}"; do
   [ "$RUN_EVAL_ZERO" = "1" ] && run_evaluate "$i" "$repo" zero "$slug"
   [ "$RUN_EVAL_FEW"  = "1" ] && run_evaluate "$i" "$repo" few  "$slug"
 done
+
+# =============================================================================
+# TAHAP 1b & 2b — Varian BERT-similarity (few-shot): inferensi + evaluasi
+# =============================================================================
+run_bert_inference() {
+  local idx="$1" repo="$2" sim="$3" slug="$4"
+  local in out desc
+  in="$(bert_examples_file "$sim")"
+  out="output/few_bert_${sim}_${slug}.jsonl"
+  desc="inferensi few-shot BERT-${sim} (model $((idx+1))/${#REPOS[@]}): ${repo}"
+
+  local cmd=(python llm_inference/main.py
+    --input_file_path "$in"
+    --output_file_path "$out"
+    --prompt_type few
+    --num_examples "$NUM_EXAMPLES"
+    --model_name "$repo"
+    --device "$DEVICE")
+  if [ "$repo" = "$GATED_REPO" ] && [ -n "$HF_TOKEN" ]; then
+    cmd+=(--hf_token "$HF_TOKEN")
+  fi
+
+  step "$out" "$desc" "${cmd[@]}"
+}
+
+run_bert_evaluate() {
+  local idx="$1" repo="$2" sim="$3" slug="$4"
+  local in="output/few_bert_${sim}_${slug}.jsonl"
+  local oj="output/few_bert_${sim}_${slug}_processed.jsonl"
+  local oc="output/few_bert_${sim}_${slug}_report.csv"
+  local desc="evaluasi few-shot BERT-${sim} (model $((idx+1))/${#REPOS[@]}): ${repo}"
+
+  step "$oc" "$desc" \
+    python post_processing/evaluate.py \
+      --input_file "$in" \
+      --output_jsonl "$oj" \
+      --output_csv "$oc" \
+      --prompt_type few \
+      --model_name "$repo"
+}
+
+if [ "$RUN_BERT" = "1" ]; then
+  for sim in "${SIM_FUNCTIONS[@]}"; do
+    for i in "${!REPOS[@]}"; do
+      repo="${REPOS[$i]}"; slug="${SLUGS[$i]}"
+      run_bert_inference "$i" "$repo" "$sim" "$slug"
+    done
+  done
+  for sim in "${SIM_FUNCTIONS[@]}"; do
+    for i in "${!REPOS[@]}"; do
+      repo="${REPOS[$i]}"; slug="${SLUGS[$i]}"
+      run_bert_evaluate "$i" "$repo" "$sim" "$slug"
+    done
+  done
+fi
 
 # ---------------------------------------------------------------------------
 # Ringkasan waktu inferensi (per model & mode) — mudah dicopy-paste

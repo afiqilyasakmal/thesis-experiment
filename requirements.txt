@@ -18,3 +18,8 @@ scikit-learn
 matplotlib
 seaborn
 huggingface_hub
+# SentenceTransformer untuk pemilihan contoh few-shot berbasis similaritas semantik
+# (get_example/generate_examples_bert.py). Dipin ke 3.0.0 karena API
+# `similarity_fn_name` + `model.similarity()` di versi ini yang dipakai (sama seperti
+# reference/ Alvaro); versi lebih baru mengubah API tersebut.
+sentence-transformers==3.0.0
