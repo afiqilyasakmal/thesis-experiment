@@ -9,9 +9,11 @@ melainkan dipanggil oleh main.py (entry point). Pemisahan ini membuat alur lebih
 mudah dibaca dan diuji.
 """
 
+import json
+import os
 import time
 
-from llm_inference.io_utils import read_input, write_jsonl
+from llm_inference.io_utils import read_input
 from llm_inference.model_utils import generate_answer, load_model_tokenizer
 from llm_inference.prompts import build_few_shot_prompt, build_zero_shot_prompt
 from trace import trace_input, trace_output, trace_running, trace_start
@@ -57,8 +59,10 @@ def run_bulk_inference(
     Alur di dalam fungsi ini:
         1. Muat model + tokenizer (sekali saja, di luar loop, agar efisien).
         2. Baca seluruh data JSONL.
-        3. Untuk setiap baris: bangun prompt -> generate jawaban -> simpan ke record.
-        4. Tulis seluruh record (yang sudah ditambah kolom hasil) ke file output.
+        3. Untuk setiap baris: bangun prompt -> generate jawaban -> tulis hasilnya
+           langsung ke file partial (inkremental). Bila proses terputus, record yang
+           sudah selesai tidak hilang dan bisa dilanjutkan (resume) saat dijalankan ulang.
+        4. Setelah seluruh baris selesai, pindahkan file partial menjadi file output.
     """
     # 0) Jejak langkah (trace): ringkasan tahap inferensi.
     trace_start("inference", "run_bulk_inference")
@@ -83,57 +87,83 @@ def run_bulk_inference(
     total = len(records)
     print(f"Total data yang akan diproses: {total}")
 
-    # 3) Loop inferensi per baris.
+    # 3) Tentukan titik resume dari file partial (record yang sudah selesai di run
+    #    sebelumnya). Hasil ditulis ke `output_file_path + ".part"` secara inkremental,
+    #    lalu DI-RENAME menjadi file final hanya setelah seluruh record selesai.
+    #    Dengan begitu, file final hanya ada bila run benar-benar tuntas, dan
+    #    `step()` di run_experiment.sh tetap menganggap file setengah jadi sebagai
+    #    "belum selesai" (bisa di-resume, bukan di-skip).
+    part_path = output_file_path + ".part"
+    start_idx = 0
+    if os.path.exists(part_path):
+        with open(part_path, "r", encoding="utf-8") as pf:
+            start_idx = sum(1 for _ in pf)
+        print(
+            f"[resume] {start_idx}/{total} record sudah selesai; "
+            f"lanjut dari record ke-{start_idx + 1}"
+        )
+
+    # 4) Loop inferensi per baris (mulai dari start_idx), tulis tiap record langsung.
+    os.makedirs(os.path.dirname(part_path) or ".", exist_ok=True)
+    part_f = open(part_path, "a", encoding="utf-8")
     start_time = time.time()
-    for i, record in enumerate(records):
-        prompt = _build_prompt(record, prompt_type, num_examples)
+    try:
+        for i in range(start_idx, total):
+            record = records[i]
+            prompt = _build_prompt(record, prompt_type, num_examples)
 
-        # Jejak contoh prompt (hanya record pertama, sebagai representasi).
-        if i == 0:
-            prompt_func = (
-                "build_zero_shot_prompt" if prompt_type == "zero"
-                else "build_few_shot_prompt"
-            )
-            trace_start("prompts", prompt_func)
-            trace_input(record["text"])
-            trace_running()
-            trace_output(prompt)
+            # Jejak contoh prompt (hanya record pertama yang diproses pada run ini).
+            if i == start_idx:
+                prompt_func = (
+                    "build_zero_shot_prompt" if prompt_type == "zero"
+                    else "build_few_shot_prompt"
+                )
+                trace_start("prompts", prompt_func)
+                trace_input(record["text"])
+                trace_running()
+                trace_output(prompt)
 
-        try:
-            result = generate_answer(
-                prompt, tokenizer, model, device, max_new_tokens, return_scores
-            )
-            if return_scores:
-                answer, subtokens, scores = result
-                record["original_answer"] = answer
-                record["list_subtoken"] = subtokens
-                record["list_subtoken_score"] = scores
-            else:
-                record["original_answer"] = result
-        except Exception as e:
-            # Jangan hentikan seluruh proses hanya karena satu baris gagal
-            # (misal input terlalu panjang / OOM). Tandai dan lanjutkan.
-            if verbose:
-                print(f"[GAGAL] baris ke-{i + 1}: {e}")
-            record["original_answer"] = "failed_to_get_inference_result"
+            try:
+                result = generate_answer(
+                    prompt, tokenizer, model, device, max_new_tokens, return_scores
+                )
+                if return_scores:
+                    answer, subtokens, scores = result
+                    record["original_answer"] = answer
+                    record["list_subtoken"] = subtokens
+                    record["list_subtoken_score"] = scores
+                else:
+                    record["original_answer"] = result
+            except Exception as e:
+                # Jangan hentikan seluruh proses hanya karena satu baris gagal
+                # (misal input terlalu panjang / OOM). Tandai dan lanjutkan.
+                if verbose:
+                    print(f"[GAGAL] baris ke-{i + 1}: {e}")
+                record["original_answer"] = "failed_to_get_inference_result"
 
-        # Jejak contoh jawaban model (hanya record pertama).
-        if i == 0:
-            trace_start("model_utils", "generate_answer")
-            trace_input(
-                f"prompt mentah (tanpa chat template), max_new_tokens={max_new_tokens}, greedy (do_sample=False)"
-            )
-            trace_running()
-            trace_output(record["original_answer"])
+            # Tulis record yang sudah selesai ke file partial (inkremental + flush).
+            part_f.write(json.dumps(record, ensure_ascii=False) + "\n")
+            part_f.flush()
 
-        # Progres: selalu cetak tiap 100 record (atau record terakhir) supaya terlihat
-        # LLM sedang memproses bagian mana; saat verbose, cetak setiap record.
-        if verbose or (i + 1) % 100 == 0 or (i + 1) == total:
-            elapsed = time.time() - start_time
-            print(f"  [progres] {i + 1}/{total} record ({elapsed:.2f}s)")
+            # Jejak contoh jawaban model (hanya record pertama yang diproses pada run ini).
+            if i == start_idx:
+                trace_start("model_utils", "generate_answer")
+                trace_input(
+                    f"prompt mentah (tanpa chat template), max_new_tokens={max_new_tokens}, greedy (do_sample=False)"
+                )
+                trace_running()
+                trace_output(record["original_answer"])
 
-    # 4) Simpan hasil.
-    write_jsonl(records, output_file_path)
+            # Progres: selalu cetak tiap 100 record (atau record terakhir) supaya
+            # terlihat LLM sedang memproses bagian mana; saat verbose, cetak tiap record.
+            if verbose or (i + 1) % 100 == 0 or (i + 1) == total:
+                elapsed = time.time() - start_time
+                print(f"  [progres] {i + 1}/{total} record ({elapsed:.2f}s)")
+    finally:
+        part_f.close()
+
+    # 5) Seluruh record selesai: pindahkan file partial menjadi file final.
+    os.replace(part_path, output_file_path)
     print(f"Inferensi selesai. Hasil tersimpan di: {output_file_path}")
 
     # 5) Cetak 10 hasil pertama sebagai contoh ke terminal.
