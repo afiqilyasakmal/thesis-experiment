@@ -39,11 +39,17 @@ TRAIN_CSV="dataset/train.csv"
 SIM_FUNCTIONS=(cosine dot euclidean manhattan)
 
 # Subset model: "repo:HuggingFace -> slug_nama_file" (dipisah ':').
-MODELS=(
-  "mistralai/Mistral-7B-Instruct-v0.3:mistral-7b"
-  "deepseek-ai/deepseek-llm-7b-chat:deepseek-7b"
-  "Qwen/Qwen2.5-7B-Instruct:qwen2.5-7b"
-)
+# Bisa di-override lewat env MODELS (entri dipisah koma), mis. untuk SATU model:
+#   MODELS="mistralai/Mistral-7B-Instruct-v0.3:mistral-7b" bash run_subset.sh
+if [ -n "${MODELS:-}" ]; then
+  IFS=',' read -ra MODELS <<< "$MODELS"
+else
+  MODELS=(
+    "mistralai/Mistral-7B-Instruct-v0.3:mistral-7b"
+    "deepseek-ai/deepseek-llm-7b-chat:deepseek-7b"
+    "Qwen/Qwen2.5-7B-Instruct:qwen2.5-7b"
+  )
+fi
 
 # ---------------------------------------------------------------------------
 # Parsing argumen
