@@ -16,7 +16,7 @@
 #   ./run_subset.sh infer            # hanya inferensi
 #   ./run_subset.sh eval             # hanya evaluasi
 #
-# Variabel lingkungan: DEVICE, NUM_EXAMPLES, FORCE, DRY_RUN, BERT_MODEL
+# Variabel lingkungan: DEVICE, DTYPE, NUM_EXAMPLES, FORCE, DRY_RUN, BERT_MODEL
 #
 # CATATAN RESUME:
 #   Inferensi menulis hasil secara inkremental ke file `.part` lalu di-rename
@@ -28,6 +28,7 @@ set -uo pipefail
 cd "$(dirname "$0")"
 
 DEVICE="${DEVICE:-cuda}"
+DTYPE="${DTYPE:-bfloat16}"   # GPU lama (T4/Turing): pakai float16 (bf16 lambat)
 NUM_EXAMPLES="${NUM_EXAMPLES:-5}"
 BERT_MODEL="${BERT_MODEL:-indobenchmark/indobert-large-p2}"
 FORCE="${FORCE:-0}"
@@ -133,7 +134,7 @@ if [ "$RUN_INFER" = "1" ]; then
           --input_file_path "$(bert_examples_file "$sim")" \
           --output_file_path "$out" \
           --prompt_type few --num_examples "$NUM_EXAMPLES" \
-          --model_name "$repo" --device "$DEVICE"
+          --model_name "$repo" --device "$DEVICE" --dtype "$DTYPE"
     done
   done
 fi
